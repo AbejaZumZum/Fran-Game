@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- Meta-tags para iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Fran">
+    <meta name="theme-color" content="#111827">
+
+    <!-- Icono para pantalla de inicio iOS (Icono de Gatito SVG en Data URI) -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' width='512' height='512'><rect width='512' height='512' rx='120' fill='%234CAF50'/><circle cx='256' cy='256' r='200' fill='%2387CEEB'/><path d='M160 380 Q256 420 352 380 L352 260 Q256 220 160 260 Z' fill='%231a1a1a'/><circle cx='256' cy='240' r='90' fill='%231a1a1a'/><polygon points='180,170 160,80 220,130' fill='%231a1a1a'/><polygon points='332,170 352,80 292,130' fill='%231a1a1a'/><ellipse cx='220' cy='230' rx='12' ry='20' fill='%23ffeb3b'/><ellipse cx='292' cy='230' rx='12' ry='20' fill='%23ffeb3b'/><ellipse cx='220' cy='230' rx='4' ry='15' fill='%23000'/><ellipse cx='292' cy='230' rx='4' ry='15' fill='%23000'/><polygon points='256,260 246,275 266,275' fill='%23ff4081'/></svg>">
+    
+    <!-- Web App Manifest embebido en Data URI -->
+    <link rel="manifest" href="data:application/manifest+json;utf8,{%22name%22:%22Fran%20en%20el%20Parque%22,%22short_name%22:%22Fran%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%2387CEEB%22,%22theme_color%22:%22%234CAF50%22,%22icons%22:[{%22src%22:%22data:image/svg%2Bxml;utf8,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0 0 512 512'><rect%20width='512'%20height='512'%20rx='120'%20fill='%234CAF50'/><circle%20cx='256'%20cy='256'%20r='200'%20fill='%2387CEEB'/><path%20d='M160%20380%20Q256%20420%20352%20380%20L352%20260%20Q256%20220%20160%20260%20Z'%20fill='%231a1a1a'/><circle%20cx='256'%20cy='240'%20r='90'%20fill='%231a1a1a'/><polygon%20points='180,170%20160,80%20220,130'%20fill='%231a1a1a'/><polygon%20points='332,170%20352,80%20292,130'%20fill='%231a1a1a'/></svg>%22,%22sizes%22:%22512x512%22,%22type%22:%22image/svg%2Bxml%22}]}"/>
+
+    <title>Fran en el Parque</title>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111827;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            aspect-ratio: 16 / 9;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 3px solid #22c55e;
+            background-color: #000;
+            outline: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+            border: none;
+        }
+
+        .instructions {
+            margin-top: 10px;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            padding: 0 15px;
+            pointer-events: none;
+        }
+
+        b { color: #fb923c; }
+
+        /* Modal instalador de PWA en iOS */
+        #pwa-prompt {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid #3b82f6;
+            backdrop-filter: blur(10px);
+            color: #fff;
+            padding: 14px 18px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 99;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translate(-50%, 40px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+
+        #pwa-prompt .title {
+            font-weight: bold;
+            font-size: 1rem;
+            color: #60a5fa;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #pwa-prompt .steps {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #cbd5e1;
+            text-align: center;
+        }
+
+        #pwa-prompt .close-btn {
+            background: #334155;
+            color: #94a3b8;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        @media (max-height: 500px) {
+            .instructions { display: none; }
+            #game-wrapper { padding: 0; }
+            #game-container { border-radius: 0; border: none; max-width: 100vw; height: 100vh; aspect-ratio: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="game-container">
+            <canvas id="gameCanvas" width="800" height="450"></canvas>
+        </div>
+        <div class="instructions">
+            <b>TOCA LA PANTALLA</b> para saltar. <br>
+            Atrapa plumas, salta troncos, aplasta palomas y busca al perro salchicha ❤️.
+        </div>
+    </div>
+
+    <!-- Modal guía de instalación en iPhone -->
+    <div id="pwa-prompt">
+        <div class="title">📲 ¡Instala Fran como App!</div>
+        <div class="steps">
+            Para jugarlo como aplicación nativa en tu iPhone:<br>
+            1. Toca el botón <b>Compartir</b> <span style="font-size: 1.2rem;">⎋</span> en Safari.<br>
+            2. Elige <b>"Añadir a la pantalla de inicio" ➕</b>.
+        </div>
+        <button class="close-btn" onclick="document.getElementById('pwa-prompt').style.display='none'">Entendido</button>
+    </div>
+
+    <script>
+        // --- Registro de Service Worker Inline (Para soporte PWA 100% Offline) ---
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'fran-parque-v1';
+                self.addEventListener('install', (e) => {
+                    self.skipWaiting();
+                });
+                self.addEventListener('activate', (e) => {
+                    e.waitUntil(clients.claim());
+                });
+                self.addEventListener('fetch', (e) => {
+                    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+                });
+            `;
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl).catch(err => console.log('SW error:', err));
+        }
+
+        // --- Detección de Instalación iOS PWA ---
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+        if (isIOS && !isStandalone) {
+            setTimeout(() => {
+                document.getElementById('pwa-prompt').style.display = 'flex';
+            }, 1500);
+        }
+
+        // --- Configuración Canvas & Juego ---
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // --- Web Audio API ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playJumpSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playFeatherSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playPowerupSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(554, audioCtx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function playStompSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playDamageSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playGameOverSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.8);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+        }
+
+        function play1UpSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); 
+            osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.1); 
+            osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.2); 
+            osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.3); 
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        // --- Variables del Juego ---
+        let frames = 0;
+        let score = 0;
+        let lives = 3;
+        let speed = 5.5; 
+        let gameState = 'START'; 
+        const GROUND_Y = 280; 
+        const stars = [];
+        for(let i=0; i<60; i++) stars.push({x: Math.random()*1600 - 400, y: Math.random()*250, r: Math.random()*1.5});
+
+        // --- Entidades ---
+        const cat = {
+            x: 180,
+            y: 200,
+            oldY: 200,
+            width: 45,
+            height: 35,
+            vy: 0,
+            gravity: 0.75,
+            jumpPower: -12.5,
+            isGrounded: true,
+            jumps: 0,
+            invulnerableTime: 0,
+            goldenTime: 0,
+
+            draw: function() {
+                if (this.invulnerableTime > 0 && frames % 10 < 5) return; 
+
+                ctx.save();
+                if (this.goldenTime > 0) {
+                    ctx.shadowColor = "#f1c40f";
+                    ctx.shadowBlur = 15 + Math.sin(frames * 0.2) * 5;
+                }
+
+                ctx.fillStyle = "#1a1a1a";
+                // Cuerpo
+                ctx.beginPath(); ctx.roundRect(this.x, this.y, this.width, this.height, 8); ctx.fill();
+                // Cabeza
+                ctx.beginPath(); ctx.roundRect(this.x + 25, this.y - 18, 30, 30, 10); ctx.fill();
+                // Orejas
+                ctx.beginPath(); ctx.moveTo(this.x + 25, this.y - 12); ctx.lineTo(this.x + 30, this.y - 28); ctx.lineTo(this.x + 40, this.y - 15); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(this.x + 42, this.y - 15); ctx.lineTo(this.x + 50, this.y - 28); ctx.lineTo(this.x + 52, this.y - 12); ctx.fill();
+                // Cola
+                let tailWag = frames % 20 < 10 ? 8 : 0;
+                if (!this.isGrounded) tailWag = 12;
+                ctx.lineWidth = 6; ctx.strokeStyle = "#1a1a1a"; ctx.lineCap = "round";
+                ctx.beginPath(); ctx.moveTo(this.x, this.y + 10); ctx.quadraticCurveTo(this.x - 20, this.y - tailWag, this.x - 15, this.y - 15 - tailWag); ctx.stroke();
+                // Ojo
+                ctx.fillStyle = "#ffeb3b"; ctx.beginPath(); ctx.ellipse(this.x + 45, this.y - 6, 3, 5, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.beginPath(); ctx.ellipse(this.x + 46, this.y - 6, 1, 4, 0, 0, Math.PI * 2); ctx.fill();
+                // Patas
+                ctx.fillStyle = "#111";
+                let legOffset = this.isGrounded ? (frames % 10 < 5 ? 4 : -2) : 0;
+                ctx.fillRect(this.x + 5, this.y + this.height - 2, 6, 10 - legOffset);
+                ctx.fillRect(this.x + 35, this.y + this.height - 2, 6, 10 + legOffset);
+                
+                ctx.restore();
+            },
+            update: function() {
+                this.oldY = this.y;
+                this.vy += this.gravity;
+                this.y += this.vy;
+                this.isGrounded = false;
+
+                if (this.y + this.height > GROUND_Y) {
+                    this.y = GROUND_Y - this.height;
+                    this.vy = 0;
+                    this.isGrounded = true;
+                    this.jumps = 0; 
+                }
+
+                if (this.invulnerableTime > 0) this.invulnerableTime--;
+                if (this.goldenTime > 0) {
+                    this.goldenTime--;
+                    if (this.goldenTime < 60 && frames % 5 === 0) ctx.fillStyle = "white"; 
+                }
+            },
+            jump: function() {
+                if (this.jumps < 2) { 
+                    this.vy = this.jumpPower;
+                    this.isGrounded = false;
+                    this.jumps++;
+                    playJumpSound();
+                }
+            }
+        };
+
+        const logs = [];
+        const pigeons = [];
+        const feathers = [];
+        const dogs = [];
+
+        function handleSpawns() {
+            let spawnRate = Math.max(55, 100 - Math.floor((speed - 5.5) * 6));
+            
+            if (frames % spawnRate === 0) {
+                let rand = Math.random();
+                if (rand < 0.35) {
+                    let isDouble = Math.random() > 0.6;
+                    let logH = isDouble ? 70 : 35;
+                    logs.push({ x: 1000, y: GROUND_Y - logH, w: 45, h: logH, destroyed: false });
+                    let isGolden = Math.random() < 0.1;
+                    feathers.push({ x: 1010, y: GROUND_Y - logH - 50, w: 20, h: 25, golden: isGolden, collected: false });
+                } else if (rand < 0.42) {
+                    dogs.push({ x: 1000, y: GROUND_Y - 30, w: 55, h: 30, collected: false });
+                } else if (rand < 0.70) {
+                    let isHigh = Math.random() > 0.5;
+                    pigeons.push({ x: 1000, y: GROUND_Y - (isHigh ? 90 : 30), w: 35, h: 25, defeated: false, vy: 0 });
+                } else {
+                    let isGolden = Math.random() < 0.05;
+                    feathers.push({ x: 1000, y: GROUND_Y - 40 - Math.random() * 50, w: 20, h: 25, golden: isGolden, collected: false });
+                }
+            }
+        }
+
+        function takeDamage() {
+            lives--;
+            if (lives <= 0) {
+                playGameOverSound();
+                gameState = 'GAMEOVER';
+            } else {
+                playDamageSound();
+                cat.invulnerableTime = 120;
+            }
+        }
+
+        function updateEntities() {
+            let hitMargin = 6;
+
+            for (let i = 0; i < logs.length; i++) {
+                let log = logs[i];
+                if (log.destroyed) continue;
+                log.x -= speed;
+                
+                ctx.fillStyle = "#5D4037"; 
+                ctx.beginPath(); ctx.roundRect(log.x, log.y, log.w, log.h, 15); ctx.fill();
+                ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 3; ctx.stroke();
+                ctx.fillStyle = "#8D6E63";
+                ctx.beginPath(); ctx.ellipse(log.x + log.w/2, log.y + 10, log.w/2.5, 6, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(log.x + log.w/2, log.y + log.h - 10, log.w/2.5, 6, 0, 0, Math.PI*2); ctx.fill();
+
+                if (cat.x + cat.width - hitMargin > log.x && cat.x + hitMargin < log.x + log.w) {
+                    if (cat.goldenTime > 0 && cat.y + cat.height > log.y + 10) {
+                        log.destroyed = true;
+                        playStompSound();
+                    } else if (cat.vy >= 0 && (cat.oldY + cat.height) <= log.y + 12) {
+                        cat.y = log.y - cat.height;
+                        cat.vy = 0;
+                        cat.isGrounded = true;
+                        cat.jumps = 0;
+                    } else if (cat.y + cat.height > log.y + 5 && cat.invulnerableTime <= 0) { 
+                        takeDamage();
+                    }
+                }
+            }
+
+            for (let i = 0; i < pigeons.length; i++) {
+                let p = pigeons[i];
+                p.x -= (speed + 1.2); 
+                
+                if (p.defeated) {
+                    p.y += p.vy;
+                    p.vy += 0.5; 
+                } else {
+                    p.y += Math.sin(frames * 0.1) * 0.4;
+                }
+                
+                ctx.save();
+                ctx.translate(p.x + 17, p.y + 12);
+                if (p.defeated) ctx.rotate(Math.PI); 
+                ctx.fillStyle = "#8a949e";
+                ctx.beginPath(); ctx.ellipse(0, 0, 16, 10, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#e67e22";
+                ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-23, 3); ctx.lineTo(-13, 5); ctx.fill(); 
+                ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(-9, -4, 2, 0, Math.PI*2); ctx.fill();
+                
+                if (!p.defeated) {
+                    ctx.fillStyle = "#5d6770";
+                    let flap = Math.sin(frames * 0.5) * 14;
+                    ctx.beginPath(); ctx.moveTo(-5, -2); ctx.quadraticCurveTo(3, -22 + flap, 13, -12 + flap); ctx.lineTo(5, 0); ctx.fill();
+                }
+                ctx.restore();
+                
+                if (!p.defeated && cat.x < p.x + p.w - hitMargin && cat.x + cat.width - hitMargin > p.x &&
+                    cat.y < p.y + p.h - hitMargin && cat.y + cat.height > p.y + hitMargin) {
+                    
+                    if (cat.goldenTime > 0) {
+                        p.defeated = true; p.vy = -5; playStompSound(); 
+                    } else if (cat.vy > 0 && cat.y + cat.height < p.y + 15) {
+                        p.defeated = true; p.vy = 2;
+                        cat.vy = cat.jumpPower * 0.8; 
+                        cat.jumps = 1; 
+                        playStompSound();
+                    } else if (cat.invulnerableTime <= 0) {
+                        takeDamage();
+                    }
+                }
+            }
+
+            for (let i = 0; i < feathers.length; i++) {
+                let f = feathers[i];
+                if (f.collected) continue;
+                f.x -= speed;
+                f.y += Math.sin(frames * 0.05) * 0.5; 
+
+                ctx.save();
+                ctx.translate(f.x + 10, f.y + 12);
+                ctx.rotate(Math.sin(frames * 0.1) * 0.2); 
+                
+                if (f.golden) {
+                    ctx.shadowColor = "#f1c40f"; ctx.shadowBlur = 10;
+                    ctx.strokeStyle = "#f39c12"; ctx.fillStyle = "#f1c40f";
+                } else {
+                    ctx.strokeStyle = "white"; ctx.fillStyle = "#e0f7fa";
+                }
+
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(0, 10); ctx.quadraticCurveTo(-15, -5, 0, -15); ctx.quadraticCurveTo(10, -5, 0, 10); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, 15); ctx.lineTo(0, -10); ctx.stroke();
+                ctx.restore();
+
+                if (cat.x < f.x + f.w && cat.x + cat.width > f.x &&
+                    cat.y < f.y + f.h && cat.y + cat.height > f.y) {
+                    f.collected = true;
+                    if (f.golden) {
+                        cat.goldenTime = 480; 
+                        playPowerupSound();
+                        score += 5;
+                    } else {
+                        score++;
+                        playFeatherSound();
+                    }
+                    if (score % 5 === 0 && speed < 11) speed += 0.4;
+                }
+            }
+
+            for (let i = 0; i < dogs.length; i++) {
+                let dog = dogs[i];
+                if (dog.collected) continue;
+                dog.x -= speed;
+
+                ctx.save();
+                ctx.translate(dog.x, dog.y);
+                ctx.fillStyle = "#8B4513"; 
+                ctx.beginPath(); ctx.roundRect(0, 10, 48, 14, 7); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(4, 6, 11, 9, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(-6, 8, 7, 5, 0, 0, Math.PI*2); ctx.fill(); 
+                ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(-12, 7, 2.5, 0, Math.PI*2); ctx.fill(); 
+                ctx.fillStyle = "#5C3A21"; ctx.beginPath(); ctx.ellipse(8, 12, 5, 10, Math.PI/6, 0, Math.PI*2); ctx.fill();
+                let walk = Math.sin(frames * 0.5) * 3;
+                ctx.fillStyle = "#3E2723";
+                ctx.fillRect(8 + walk, 23, 4, 7); ctx.fillRect(16 - walk, 23, 4, 7);
+                ctx.fillRect(32 + walk, 23, 4, 7); ctx.fillRect(40 - walk, 23, 4, 7);
+                ctx.strokeStyle = "#8B4513"; ctx.lineWidth = 3;
+                let wag = Math.sin(frames * 0.8) * 6;
+                ctx.beginPath(); ctx.moveTo(45, 12); ctx.quadraticCurveTo(52, 10 + wag, 56, 4 + wag); ctx.stroke();
+                ctx.restore();
+
+                let hitMargin = 5;
+                if (cat.x < dog.x + dog.w - hitMargin && cat.x + cat.width > dog.x + hitMargin &&
+                    cat.y < dog.y + dog.h - hitMargin && cat.y + cat.height > dog.y + hitMargin) {
+                    dog.collected = true;
+                    lives = Math.min(lives + 1, 5); 
+                    play1UpSound();
+                }
+            }
+
+            while(logs.length > 0 && logs[0].x < -100) logs.shift();
+            while(pigeons.length > 0 && pigeons[0].x < -100) pigeons.shift();
+            while(feathers.length > 0 && feathers[0].x < -100) feathers.shift();
+            while(dogs.length > 0 && dogs[0].x < -100) dogs.shift();
+        }
+
+        // --- Ciclo de Día y Noche ---
+        function getCycleColor(cDay, cNight, cycle) {
+            let r = Math.floor(cNight[0] + (cDay[0] - cNight[0]) * cycle);
+            let g = Math.floor(cNight[1] + (cDay[1] - cNight[1]) * cycle);
+            let b = Math.floor(cNight[2] + (cDay[2] - cNight[2]) * cycle);
+            return `rgb(${r},${g},${b})`;
+        }
+
+        function drawBackgroundStatic() {
+            let cycle = (Math.sin(frames * 0.0015) + 1) / 2; 
+
+            let cTopD = [77,166,255],  cTopN = [11,16,33];
+            let cMidD = [135,206,235], cMidN = [27,39,53];
+            let cBotD = [224,246,255], cBotN = [43,50,69];
+            
+            if (cycle > 0.3 && cycle < 0.7) {
+                cBotD = [255, 150, 100]; 
+            }
+
+            let sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            sky.addColorStop(0, getCycleColor(cTopD, cTopN, cycle)); 
+            sky.addColorStop(0.6, getCycleColor(cMidD, cMidN, cycle)); 
+            sky.addColorStop(1, getCycleColor(cBotD, cBotN, cycle)); 
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (cycle < 0.6) {
+                let starAlpha = 1 - (cycle / 0.6);
+                ctx.fillStyle = `rgba(255, 255, 255, ${starAlpha})`;
+                for (let s of stars) {
+                    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+                }
+            }
+
+            let sunY = 250 - Math.sin(cycle * Math.PI/2) * 150;
+            let moonY = 250 - Math.sin((1-cycle) * Math.PI/2) * 150;
+            
+            ctx.fillStyle = `rgba(255, 240, 150, ${cycle})`; 
+            ctx.beginPath(); ctx.arc(680, sunY, 50, 0, Math.PI * 2); ctx.fill();
+            
+            ctx.fillStyle = `rgba(220, 230, 240, ${1-cycle})`; 
+            ctx.beginPath(); ctx.arc(150, moonY, 40, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function drawCeibo(x, y, scale, cycle) {
+            ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
+            let darkness = 0.5 + cycle * 0.5;
+            
+            ctx.fillStyle = `rgb(${Math.floor(93*darkness)},${Math.floor(64*darkness)},${Math.floor(55*darkness)})`;
+            ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(-12, -70); ctx.lineTo(12, -70); ctx.lineTo(8, 0); ctx.fill();
+            
+            ctx.fillStyle = `rgb(${Math.floor(46*darkness)},${Math.floor(125*darkness)},${Math.floor(50*darkness)})`;
+            ctx.beginPath(); ctx.arc(0, -90, 45, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-30, -70, 35, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(30, -70, 35, 0, Math.PI*2); ctx.fill();
+            
+            ctx.fillStyle = `rgb(${Math.floor(229*darkness)},${Math.floor(57*darkness)},${Math.floor(53*darkness)})`;
+            ctx.beginPath(); ctx.arc(-20, -80, 7, 0, Math.PI*2); ctx.arc(-13, -75, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(15, -100, 8, 0, Math.PI*2); ctx.arc(22, -95, 7, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function drawCortadera(x, y, scale, cycle) {
+            ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
+            let darkness = 0.5 + cycle * 0.5;
+            
+            ctx.strokeStyle = `rgb(${Math.floor(85*darkness)},${Math.floor(139*darkness)},${Math.floor(47*darkness)})`; 
+            ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-15, -30, -35, -20); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(15, -30, 35, -20); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -75); ctx.stroke();
+            
+            ctx.fillStyle = `rgb(${Math.floor(245*darkness)},${Math.floor(245*darkness)},${Math.floor(220*darkness)})`;
+            ctx.beginPath(); ctx.ellipse(-20, -70, 4, 15, Math.PI/4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(20, -70, 4, 15, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(0, -75, 4, 18, 0, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function drawEnvironmentAndGround() {
+            let cycle = (Math.sin(frames * 0.0015) + 1) / 2; 
+
+            let bgOffset = (frames * speed * 0.4) % 400;
+            for (let x = -200; x < 1600; x += 400) {
+                drawCeibo(x - bgOffset + 100, GROUND_Y, 0.55, cycle);
+                drawCortadera(x - bgOffset + 300, GROUND_Y, 0.5, cycle);
+            }
+            let midOffset = (frames * speed * 0.7) % 350;
+            for (let x = -200; x < 1600; x += 350) {
+                drawCortadera(x - midOffset + 50, GROUND_Y, 0.8, cycle);
+                drawCeibo(x - midOffset + 220, GROUND_Y, 0.7, cycle);
+            }
+
+            let groundDarkness = 0.5 + cycle * 0.5;
+            ctx.fillStyle = `rgb(${Math.floor(121*groundDarkness)},${Math.floor(85*groundDarkness)},${Math.floor(72*groundDarkness)})`;
+            ctx.fillRect(-200, GROUND_Y, 1600, 500); 
+            ctx.fillStyle = `rgb(${Math.floor(76*groundDarkness)},${Math.floor(175*groundDarkness)},${Math.floor(80*groundDarkness)})`;
+            ctx.fillRect(-200, GROUND_Y, 1600, 25);
+            ctx.strokeStyle = `rgb(${Math.floor(56*groundDarkness)},${Math.floor(142*groundDarkness)},${Math.floor(60*groundDarkness)})`; 
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(-200, GROUND_Y); ctx.lineTo(1600, GROUND_Y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-200, GROUND_Y + 25); ctx.lineTo(1600, GROUND_Y + 25); ctx.stroke();
+        }
+
+        function drawOverlay() {
+            let cycle = (Math.sin(frames * 0.0015) + 1) / 2; 
+            let shadowOp = 0.6 + (1 - cycle) * 0.3; 
+            
+            let shadow = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            shadow.addColorStop(0, `rgba(0, 0, 0, ${shadowOp})`); 
+            shadow.addColorStop(0.15, "rgba(0, 0, 0, 0)"); 
+            shadow.addColorStop(0.85, "rgba(0, 0, 0, 0)"); 
+            shadow.addColorStop(1, `rgba(0, 0, 0, ${shadowOp + 0.1})`);  
+            ctx.fillStyle = shadow; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawUI() {
+            ctx.fillStyle = "white";
+            ctx.font = "bold 28px -apple-system, sans-serif";
+            ctx.shadowColor = "rgba(0,0,0,0.6)"; ctx.shadowBlur = 4;
+            ctx.fillText("Plumas: " + score, 20, 45);
+            
+            ctx.fillStyle = "#e74c3c";
+            ctx.font = "24px -apple-system, sans-serif";
+            let hearts = "";
+            for(let i=0; i<lives; i++) hearts += "❤️ ";
+            ctx.fillText(hearts, 20, 80);
+            
+            if (cat.goldenTime > 0) {
+                ctx.fillStyle = "#f1c40f";
+                ctx.font = "bold 20px -apple-system, sans-serif";
+                ctx.fillText("¡INVENCIBLE!", 20, 110);
+            }
+            ctx.shadowBlur = 0; 
+
+            if (gameState === 'START') {
+                ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.shadowColor = "rgba(0,0,0,0.8)"; ctx.shadowBlur = 4;
+                ctx.font = "bold 45px -apple-system, sans-serif"; ctx.fillText("Fran en el Parque", canvas.width/2, 180);
+                ctx.font = "20px -apple-system, sans-serif"; ctx.fillStyle = "#ffeb3b";
+                ctx.fillText("¡Encuentra al perro salchicha para obtener vidas!", canvas.width/2, 230);
+                ctx.fillStyle = "#fff"; ctx.fillText("Toca la pantalla para empezar", canvas.width/2, 280);
+                ctx.textAlign = "left"; ctx.shadowBlur = 0;
+            }
+
+            if (gameState === 'GAMEOVER') {
+                ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#e74c3c"; ctx.textAlign = "center"; ctx.shadowColor = "rgba(0,0,0,0.8)"; ctx.shadowBlur = 4;
+                ctx.font = "bold 45px -apple-system, sans-serif"; ctx.fillText("¡Sin Vidas!", canvas.width/2, 180);
+                ctx.fillStyle = "white"; ctx.font = "24px -apple-system, sans-serif"; ctx.fillText("Recogiste " + score + " plumas", canvas.width/2, 230);
+                ctx.fillStyle = "#ffeb3b"; ctx.font = "18px -apple-system, sans-serif"; ctx.fillText("Toca la pantalla para reintentar", canvas.width/2, 280);
+                ctx.textAlign = "left"; ctx.shadowBlur = 0;
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawBackgroundStatic(); 
+            
+            ctx.save();
+            ctx.translate(0, 120); 
+            ctx.rotate(-0.15); 
+
+            if (gameState === 'PLAYING') {
+                cat.update();
+                handleSpawns();
+                frames++;
+            }
+            
+            drawEnvironmentAndGround(); 
+            updateEntities(); 
+            cat.draw(); 
+            
+            ctx.restore();
+            
+            drawOverlay(); 
+            drawUI(); 
+
+            requestAnimationFrame(animate);
+        }
+
+        function handleInput(e) {
+            if (e.target.closest('#pwa-prompt')) return; // No saltar si toca el botón del cartel PWA
+            if (e.type === "keydown" && e.code !== "Space" && e.code !== "ArrowUp") return;
+            
+            if (e.cancelable) e.preventDefault();
+            
+            initAudio(); 
+
+            if (gameState === 'START' || gameState === 'GAMEOVER') {
+                resetGame();
+            } else if (gameState === 'PLAYING') {
+                cat.jump();
+            }
+        }
+
+        window.addEventListener("keydown", handleInput);
+        window.addEventListener("touchstart", handleInput, {passive: false});
+        window.addEventListener("mousedown", handleInput);
+
+        function resetGame() {
+            cat.y = 200; cat.vy = 0; cat.isGrounded = false; cat.oldY = 200; cat.jumps = 0;
+            cat.invulnerableTime = 0; cat.goldenTime = 0;
+            logs.length = 0; pigeons.length = 0; feathers.length = 0; dogs.length = 0;
+            score = 0; frames = 0; speed = 5.5; lives = 3;
+            gameState = 'PLAYING';
+            playJumpSound();
+        }
+
+        animate();
+    </script>
+</body>
+</html>
